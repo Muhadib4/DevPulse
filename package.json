@@ -17,7 +17,7 @@
   "keywords": [],
   "author": "",
   "license": "UNLICENSED",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Muhadib4/DevPulse/issues"
   },
@@ -49,5 +49,8 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.9.0"
+  }
 }

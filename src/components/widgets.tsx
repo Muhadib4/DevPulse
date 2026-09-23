@@ -1,12 +1,272 @@
-'use client';
-import {useEffect,useRef,useState} from 'react';
-import Link from 'next/link';
-import {ArrowUpRight,Clock,Pause,Play,RotateCcw,StickyNote,Timer,X} from 'lucide-react';
-import {toast} from 'sonner';
-import {Card} from './ui';
-import {useWorkspace} from '@/stores/workspace';
-export function ClockWidget(){const [now,setNow]=useState<Date|null>(null);const hour24=useWorkspace(s=>s.preferences.hour24);useEffect(()=>{const t=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(t);},[]);return <Card title="Your local time" actions={<Clock size={16} className="muted"/>} className="clock-widget"><div className="digital-clock mono">{now?.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:!hour24})||'--:--'}<span className="clock-seconds">{now?String(now.getSeconds()).padStart(2,'0'):'--'}</span></div><p>{now?.toLocaleDateString('en',{weekday:'long',month:'long',day:'numeric'})||'Your day, at a glance'}</p><span className="timezone mono">{now?Intl.DateTimeFormat().resolvedOptions().timeZone:'LOCAL TIME'}</span></Card>;}
-export function FocusTimer(){const [duration,setDuration]=useState(25);const [remaining,setRemaining]=useState(25*60);const [running,setRunning]=useState(false);const [custom,setCustom]=useState('25');const deadline=useRef(0);useEffect(()=>{if(!running)return;const tick=()=>{const value=Math.max(0,Math.ceil((deadline.current-Date.now())/1000));setRemaining(value);if(value===0){setRunning(false);toast.success('Focus session complete. Time for a short break.');if('Notification' in window&&Notification.permission==='granted')new Notification('DevPulse',{body:'Focus session complete. Take a short break.'});}};const t=setInterval(tick,250);return()=>clearInterval(t);},[running]);const choose=(minutes:number)=>{setDuration(minutes);setRemaining(minutes*60);setRunning(false);};return <Card title="A little room to focus" actions={<Timer size={17} className="accent"/>} className="focus-widget"><div className="timer-modes">{[25,50].map(n=><button key={n} className={duration===n?'selected':''} onClick={()=>choose(n)}>{n} min</button>)}<form onSubmit={e=>{e.preventDefault();choose(Math.min(180,Math.max(1,Number(custom)||25)));}}><input aria-label="Custom focus duration in minutes" type="number" min="1" max="180" value={custom} onChange={e=>setCustom(e.target.value)}/><button type="submit">Set</button></form></div><div className="timer-display mono">{String(Math.floor(remaining/60)).padStart(2,'0')}<span>:</span>{String(remaining%60).padStart(2,'0')}</div><div className="timer-bottom"><span><span className={`status-dot ${running?'':'muted-dot'}`}/>{running?'One thing at a time.':remaining===0?'Nicely done. Take a break.':'Make space for deep work.'}</span><div><button className="icon-button" aria-label="Reset timer" title="Reset timer" onClick={()=>choose(duration)}><RotateCcw size={16}/></button><button className="timer-start" aria-label={running?'Pause timer':'Start timer'} onClick={()=>{if(running){setRemaining(Math.max(0,Math.ceil((deadline.current-Date.now())/1000)));setRunning(false);}else{const seconds=remaining||duration*60;setRemaining(seconds);deadline.current=Date.now()+seconds*1000;setRunning(true);}}}>{running?<Pause size={17}/>:<Play size={17}/>}</button></div></div></Card>;}
-export function QuickNotes(){const {notes,saveNote}=useWorkspace();const [content,setContent]=useState('');return <Card title="A thought worth keeping" actions={<StickyNote size={16} className="muted"/>}><form className="quick-note" onSubmit={e=>{e.preventDefault();if(!content.trim())return;const now=Date.now();saveNote({id:crypto.randomUUID(),title:content.trim().split('\n')[0].slice(0,70),content,tag:'',pinned:false,createdAt:now,updatedAt:now});setContent('');toast.success('Note saved in your browser');}}><textarea aria-label="Quick note" placeholder="An idea, a snippet, your next big thing…" value={content} onChange={e=>setContent(e.target.value)}/><div><Link href="/notes">{notes.length} notes <ArrowUpRight size={13}/></Link><button className="button secondary small" disabled={!content.trim()}>Save note</button></div></form></Card>;}
-export function RecentWidget(){const {recent,removeRecent,developers}=useWorkspace();return <Card title="Pick up where you left off" actions={recent.length>0?<button className="text-button" onClick={()=>removeRecent()}>Clear</button>:undefined}><div className="recent-list">{recent.length?recent.slice(0,4).map(r=><div key={r.url}><Link href={r.url}><Clock size={14}/><span>{r.label}</span><ArrowUpRight size={14}/></Link><button className="icon-button small" onClick={()=>removeRecent(r.url)} aria-label={`Remove ${r.label} from history`}><X size={13}/></button></div>):<p className="muted">The developers and repositories you explore will find a home here.</p>}</div>{developers.length>0&&<div className="saved-avatars"><span className="muted">Your people</span>{developers.slice(0,5).map(d=><Link key={d.login} href={`/developer/${d.login}`} title={d.login}><img src={d.avatar_url} alt={d.login}/></Link>)}</div>}</Card>;}
-export function Widgets(){const widgets=useWorkspace(s=>s.preferences.widgets);return <div className="widget-grid">{widgets.focus&&<FocusTimer/>}{widgets.notes&&<QuickNotes/>}{widgets.clock&&<ClockWidget/>}{widgets.recent&&<RecentWidget/>}</div>;}
+"use client";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowUpRight,
+  Clock,
+  Pause,
+  Play,
+  RotateCcw,
+  StickyNote,
+  Timer,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Card } from "./ui";
+import { useWorkspace } from "@/stores/workspace";
+export function ClockWidget() {
+  const [now, setNow] = useState<Date | null>(null);
+  const hour24 = useWorkspace((s) => s.preferences.hour24);
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <Card
+      title="Your local time"
+      actions={<Clock size={16} className="muted" />}
+      className="clock-widget"
+    >
+      <div className="digital-clock mono">
+        {now?.toLocaleTimeString("en", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: !hour24,
+        }) || "--:--"}
+        <span className="clock-seconds">
+          {now ? String(now.getSeconds()).padStart(2, "0") : "--"}
+        </span>
+      </div>
+      <p>
+        {now?.toLocaleDateString("en", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        }) || "Your day, at a glance"}
+      </p>
+      <span className="timezone mono">
+        {now ? Intl.DateTimeFormat().resolvedOptions().timeZone : "LOCAL TIME"}
+      </span>
+    </Card>
+  );
+}
+export function FocusTimer() {
+  const [duration, setDuration] = useState(25);
+  const [remaining, setRemaining] = useState(25 * 60);
+  const [running, setRunning] = useState(false);
+  const [custom, setCustom] = useState("25");
+  const deadline = useRef(0);
+  useEffect(() => {
+    if (!running) return;
+    const tick = () => {
+      const value = Math.max(
+        0,
+        Math.ceil((deadline.current - Date.now()) / 1000),
+      );
+      setRemaining(value);
+      if (value === 0) {
+        setRunning(false);
+        toast.success("Focus session complete. Time for a short break.");
+        if ("Notification" in window && Notification.permission === "granted")
+          new Notification("DevPulse", {
+            body: "Focus session complete. Take a short break.",
+          });
+      }
+    };
+    const t = setInterval(tick, 250);
+    return () => clearInterval(t);
+  }, [running]);
+  const choose = (minutes: number) => {
+    setDuration(minutes);
+    setRemaining(minutes * 60);
+    setRunning(false);
+  };
+  return (
+    <Card
+      title="A little room to focus"
+      actions={<Timer size={17} className="accent" />}
+      className="focus-widget"
+    >
+      <div className="timer-modes">
+        {[25, 50].map((n) => (
+          <button
+            key={n}
+            className={duration === n ? "selected" : ""}
+            onClick={() => choose(n)}
+          >
+            {n} min
+          </button>
+        ))}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            choose(Math.min(180, Math.max(1, Number(custom) || 25)));
+          }}
+        >
+          <input
+            aria-label="Custom focus duration in minutes"
+            type="number"
+            min="1"
+            max="180"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+          />
+          <button type="submit">Set</button>
+        </form>
+      </div>
+      <div className="timer-display mono">
+        {String(Math.floor(remaining / 60)).padStart(2, "0")}
+        <span>:</span>
+        {String(remaining % 60).padStart(2, "0")}
+      </div>
+      <div className="timer-bottom">
+        <span>
+          <span className={`status-dot ${running ? "" : "muted-dot"}`} />
+          {running
+            ? "One thing at a time."
+            : remaining === 0
+              ? "Nicely done. Take a break."
+              : "Make space for deep work."}
+        </span>
+        <div>
+          <button
+            className="icon-button"
+            aria-label="Reset timer"
+            title="Reset timer"
+            onClick={() => choose(duration)}
+          >
+            <RotateCcw size={16} />
+          </button>
+          <button
+            className="timer-start"
+            aria-label={running ? "Pause timer" : "Start timer"}
+            onClick={() => {
+              if (running) {
+                setRemaining(
+                  Math.max(
+                    0,
+                    Math.ceil((deadline.current - Date.now()) / 1000),
+                  ),
+                );
+                setRunning(false);
+              } else {
+                const seconds = remaining || duration * 60;
+                setRemaining(seconds);
+                deadline.current = Date.now() + seconds * 1000;
+                setRunning(true);
+              }
+            }}
+          >
+            {running ? <Pause size={17} /> : <Play size={17} />}
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+export function QuickNotes() {
+  const { notes, saveNote } = useWorkspace();
+  const [content, setContent] = useState("");
+  return (
+    <Card
+      title="A thought worth keeping"
+      actions={<StickyNote size={16} className="muted" />}
+    >
+      <form
+        className="quick-note"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!content.trim()) return;
+          const now = Date.now();
+          saveNote({
+            id: crypto.randomUUID(),
+            title: content.trim().split("\n")[0].slice(0, 70),
+            content,
+            tag: "",
+            pinned: false,
+            createdAt: now,
+            updatedAt: now,
+          });
+          setContent("");
+          toast.success("Note saved in your browser");
+        }}
+      >
+        <textarea
+          aria-label="Quick note"
+          placeholder="An idea, a snippet, your next big thing…"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
+        <div>
+          <Link href="/notes">
+            {notes.length} notes <ArrowUpRight size={13} />
+          </Link>
+          <button className="button secondary small" disabled={!content.trim()}>
+            Save note
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+export function RecentWidget() {
+  const { recent, removeRecent, developers } = useWorkspace();
+  return (
+    <Card
+      title="Pick up where you left off"
+      actions={
+        recent.length > 0 ? (
+          <button className="text-button" onClick={() => removeRecent()}>
+            Clear
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="recent-list">
+        {recent.length ? (
+          recent.slice(0, 4).map((r) => (
+            <div key={r.url}>
+              <Link href={r.url}>
+                <Clock size={14} />
+                <span>{r.label}</span>
+                <ArrowUpRight size={14} />
+              </Link>
+              <button
+                className="icon-button small"
+                onClick={() => removeRecent(r.url)}
+                aria-label={`Remove ${r.label} from history`}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))
+        ) : (
+          <p className="muted">
+            The developers and repositories you explore will find a home here.
+          </p>
+        )}
+      </div>
+      {developers.length > 0 && (
+        <div className="saved-avatars">
+          <span className="muted">Your people</span>
+          {developers.slice(0, 5).map((d) => (
+            <Link key={d.login} href={`/developer/${d.login}`} title={d.login}>
+              <img src={d.avatar_url} alt={d.login} />
+            </Link>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+export function Widgets() {
+  const widgets = useWorkspace((s) => s.preferences.widgets);
+  return (
+    <div className="widget-grid">
+      {widgets.focus && <FocusTimer />}
+      {widgets.notes && <QuickNotes />}
+      {widgets.clock && <ClockWidget />}
+      {widgets.recent && <RecentWidget />}
+    </div>
+  );
+}

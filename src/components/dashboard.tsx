@@ -1,25 +1,489 @@
-'use client';
-import {useEffect,useRef,useState} from 'react';
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import {useSearchParams} from 'next/navigation';
-import {animate} from 'animejs';
-import {Activity,ArrowRight,Bookmark,BookOpen,Building2,CalendarDays,Code2,GitFork,GitGraph,MapPin,RefreshCw,Star,Users} from 'lucide-react';
-import {toast} from 'sonner';
-import {useContributions,useDeveloper} from '@/lib/github/queries';
-import {eventLabel,groupEventsByDay,languageDistribution,sortRepositories,totalForks,totalStars,type RepoSort} from '@/lib/github/analytics';
-import {dateLabel,number,relative,safeUrl} from '@/lib/utils';
-import {useWorkspace} from '@/stores/workspace';
-import {Card,CopyButton,DeveloperSearch,Empty,Entrance,ErrorState,External,Loading,PageHeading} from './ui';
-import {Widgets} from './widgets';
-import {RepositoryGrid} from './repositories';
-const ActivityChart=dynamic(()=>import('./charts').then(m=>m.ActivityChart),{loading:()=> <div className="skeleton chart-skeleton"/>});
-const Pulse=dynamic(()=>import('./charts').then(m=>m.Pulse));const LanguageChart=dynamic(()=>import('./charts').then(m=>m.LanguageChart));const PatternCharts=dynamic(()=>import('./charts').then(m=>m.PatternCharts));const Heatmap=dynamic(()=>import('./charts').then(m=>m.Heatmap));
-function AnimatedNumber({value}:{value:number}){const ref=useRef<HTMLSpanElement>(null);const reduced=useWorkspace(s=>s.preferences.reducedMotion);useEffect(()=>{if(!ref.current||reduced||matchMedia('(prefers-reduced-motion: reduce)').matches)return;const counter={value:0};const a=animate(counter,{value,duration:500,ease:'outQuad',onUpdate:()=>{if(ref.current)ref.current.textContent=number(Math.round(counter.value));}});return()=>{a.revert();};},[value,reduced]);return <span ref={ref}>{number(value)}</span>;}
-function ContributionCalendar({username}:{username:string}){const result=useContributions(username);if(result.isPending)return <div className="skeleton stat-skeleton"/>;if(result.error)return <Card title="Contribution calendar"><p className="notice">{result.error.message} The rest of your analysis is still available.</p></Card>;if(!result.data?.available)return <Card title="Contribution calendar"><div className="contribution-unavailable"><CalendarDays size={25}/><div><strong>{result.data?.reason}</strong><p>Configure a server-side GITHUB_TOKEN to enable the official GitHub contribution calendar.</p></div></div></Card>;return <Heatmap title="Contribution calendar" subtitle="Official GitHub contributions · past year" days={result.data.weeks?.flatMap(w=>w.contributionDays.map(d=>({date:d.date,count:d.contributionCount})))||[]}/>;}
-export function Analyzer(){const params=useSearchParams();const selected=useWorkspace(s=>s.selectedUsername);const username=params.get('username')||selected;return username?<Dashboard username={username} analyzer/>:<><PageHeading eyebrow="A LITTLE MORE PERSPECTIVE" title="Developer analyzer" description="Follow the patterns behind a developer’s public work."/><div className="analyzer-empty"><Empty title="Every developer has a rhythm." description="Explore public activity, languages, and repositories. No scores for skill, just a clearer view of the work."><DeveloperSearch large analyzer/></Empty></div></>;}
-export function Dashboard({username,analyzer=false}:{username:string;analyzer?:boolean}){const result=useDeveloper(username);const {select,addRecent,toggleDeveloper,developers,preferences}=useWorkspace();const [ranking,setRanking]=useState<RepoSort>('stars');useEffect(()=>{if(result.data){select(result.data.profile.login);addRecent({kind:'developer',label:`@${result.data.profile.login}`,url:`/developer/${result.data.profile.login}`});}},[result.data,select,addRecent]);
- if(result.isPending)return <Loading/>;if(result.error)return <><PageHeading title="Find your signal" description="Explore any public GitHub developer."/><DeveloperSearch/><ErrorState error={result.error} retry={()=>result.refetch()}/></>;if(!result.data)return null;
- const {profile,repos,events,warnings,repoTruncated}=result.data;const saved=developers.some(d=>d.login===profile.login);const languages=languageDistribution(repos);const top=sortRepositories(repos,ranking).slice(0,4);const stats=[{label:'Repositories',value:profile.public_repos,icon:BookOpen,sub:`${repos.length} analyzed`},{label:'Visible stars',value:totalStars(repos),icon:Star,sub:'Across retrieved repositories'},{label:'Followers',value:profile.followers,icon:Users,sub:`Following ${number(profile.following)} developers`},{label:'Repository forks',value:totalForks(repos),icon:GitFork,sub:`${languages.length} primary languages`}];
- return <Entrance><PageHeading eyebrow={analyzer?'UNDERSTAND THE PATTERNS':'YOUR DEVELOPER COMMAND CENTER'} title={analyzer?'Behind the contributions.':'Developer overview'} description={analyzer?'An honest look at the public signals behind the work.':'The projects, people, and momentum behind the profile.'} actions={<><Link className="button secondary" href={analyzer?`/developer/${profile.login}`:`/analyzer?username=${profile.login}`}>{analyzer?'Overview':'Deep dive'} <ArrowRight size={15}/></Link><button className="icon-button bordered" title="Refresh developer" aria-label="Refresh developer" disabled={result.isFetching} onClick={()=>result.refetch()}><RefreshCw size={17} className={result.isFetching?'spin':''}/></button></>}/>{analyzer&&<DeveloperSearch analyzer/>}<section className="profile-card"><img src={profile.avatar_url} alt={`${profile.login} avatar`} className="profile-avatar"/><div className="profile-info"><div className="profile-name"><h2>{profile.name||profile.login}</h2><span className="profile-tag">GITHUB DEVELOPER</span></div><span className="profile-username mono">@{profile.login}</span><p>{profile.bio||'Building something, one commit at a time.'}</p><div className="profile-meta">{profile.location&&<span><MapPin size={13}/>{profile.location}</span>}{profile.company&&<span><Building2 size={13}/>{profile.company}</span>}<span><CalendarDays size={13}/> Joined {dateLabel(profile.created_at)}</span>{safeUrl(profile.blog)&&<External href={safeUrl(profile.blog)!}>Website</External>}</div></div><div className="profile-actions"><button className={`button ${saved?'secondary':'primary'}`} onClick={()=>{toggleDeveloper(profile);toast.success(saved?'Developer removed':'Developer saved');}}><Bookmark size={15} fill={saved?'currentColor':'none'}/>{saved?'Saved developer':'Save developer'}</button><External href={profile.html_url} className="button secondary"><GitGraph size={15}/>View GitHub</External><div className="profile-copy"><CopyButton value={profile.login} label="Copy username"/><CopyButton value={profile.html_url} label="Copy URL"/></div></div></section>{warnings.map((w,i)=><p className="notice" key={i}>{w}</p>)}{repoTruncated&&<p className="notice">Repository analytics cover {repos.length} retrieved repositories, not the full profile.</p>}<div className="stats-grid">{stats.map(s=><Card key={s.label} className="stat-card"><div><span>{s.label}</span><s.icon size={17}/></div><strong className="mono"><AnimatedNumber value={s.value}/></strong><p>{s.sub}</p></Card>)}</div><div className="dashboard-primary"><ActivityChart events={events}/><Pulse events={events} repos={repos}/></div>{analyzer?<><Heatmap days={groupEventsByDay(events,90)}/><ContributionCalendar username={profile.login}/><PatternCharts events={events}/></>:null}<div className="analytics-pair"><LanguageChart repos={repos}/><Card title="Signals worth noticing" subtitle="A few observations, grounded in the available data."><div className="insights">{languages.length>0&&<div><Code2 size={19}/><p><strong>{languages[0].name} leads the way.</strong><span>It is the primary language in {languages[0].value} of the analyzed repositories.</span></p></div>}{events.length>0&&<div><Activity size={19}/><p><strong>The latest signal was {new Date(events[0].created_at).toLocaleDateString('en',{weekday:'long',timeZone:'UTC'})}.</strong><span>{events.length} visible public events were retrieved. {events.filter(e=>e.type==='PushEvent').length} are push events.</span></p></div>}{repos.length>0&&<div><GitFork size={19}/><p><strong>{repos.filter(r=>Date.now()-Date.parse(r.pushed_at)<7*864e5).length} repositories pushed to this week.</strong><span>Recent pushes reflect updates, not necessarily the profile owner’s own commits.</span></p></div>}{!repos.length&&!events.length&&<Empty title="Room for new signals" description="There is not enough public data to generate observations."/>}</div></Card></div><div className="section-heading"><div><h2>Repositories in the spotlight</h2><p>The work behind the numbers.</p></div><div className="heading-actions"><select aria-label="Repository ranking" value={ranking} onChange={e=>setRanking(e.target.value as RepoSort)}><option value="stars">Most starred</option><option value="forks">Most forked</option><option value="updated">Recently updated</option><option value="created">Newest</option></select><Link className="text-link" href={`/explore?q=${encodeURIComponent(`user:${profile.login}`)}`}>View all <ArrowRight size={14}/></Link></div></div>{top.length?<RepositoryGrid repos={top}/>:<Empty title="No public repositories yet" description="Repositories will appear here when they become public."/>}<Card title="The latest from GitHub" subtitle="A timeline of visible public activity." actions={<span className="subtle-badge">{events.length} events</span>}><div className="activity-timeline">{events.length?events.slice(0,8).map(event=><div key={event.id}><span className="timeline-icon"><Activity size={15}/></span><div><p>{eventLabel(event)} <Link href={`/repository/${event.repo.name}`}>{event.repo.name}</Link></p><span className="mono">{event.type.replace('Event','')}</span></div><time title={dateLabel(event.created_at)}>{relative(event.created_at)}</time></div>):<p className="muted">No recent public activity. Private contributions are not included.</p>}</div></Card>{!analyzer&&<Widgets/>}<div className="data-caption"><span className="status-dot"/> Last retrieved {relative(result.dataUpdatedAt)} · {repos.length} repositories · {events.length} events{preferences.reducedMotion?' · Reduced motion':''}</div></Entrance>;
+"use client";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { animate } from "animejs";
+import {
+  Activity,
+  ArrowRight,
+  Bookmark,
+  BookOpen,
+  Building2,
+  CalendarDays,
+  Code2,
+  GitFork,
+  GitGraph,
+  MapPin,
+  RefreshCw,
+  Star,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useContributions, useDeveloper } from "@/lib/github/queries";
+import {
+  eventLabel,
+  groupEventsByDay,
+  languageDistribution,
+  sortRepositories,
+  totalForks,
+  totalStars,
+  type RepoSort,
+} from "@/lib/github/analytics";
+import { dateLabel, number, relative, safeUrl } from "@/lib/utils";
+import { useWorkspace } from "@/stores/workspace";
+import {
+  Card,
+  CopyButton,
+  DeveloperSearch,
+  Empty,
+  Entrance,
+  ErrorState,
+  External,
+  Loading,
+  PageHeading,
+} from "./ui";
+import { Widgets } from "./widgets";
+import { RepositoryGrid } from "./repositories";
+const ActivityChart = dynamic(
+  () => import("./charts").then((m) => m.ActivityChart),
+  { loading: () => <div className="skeleton chart-skeleton" /> },
+);
+const Pulse = dynamic(() => import("./charts").then((m) => m.Pulse));
+const LanguageChart = dynamic(() =>
+  import("./charts").then((m) => m.LanguageChart),
+);
+const PatternCharts = dynamic(() =>
+  import("./charts").then((m) => m.PatternCharts),
+);
+const Heatmap = dynamic(() => import("./charts").then((m) => m.Heatmap));
+function AnimatedNumber({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const reduced = useWorkspace((s) => s.preferences.reducedMotion);
+  useEffect(() => {
+    if (
+      !ref.current ||
+      reduced ||
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const counter = { value: 0 };
+    const a = animate(counter, {
+      value,
+      duration: 500,
+      ease: "outQuad",
+      onUpdate: () => {
+        if (ref.current)
+          ref.current.textContent = number(Math.round(counter.value));
+      },
+    });
+    return () => {
+      a.revert();
+    };
+  }, [value, reduced]);
+  return <span ref={ref}>{number(value)}</span>;
+}
+function ContributionCalendar({ username }: { username: string }) {
+  const result = useContributions(username);
+  if (result.isPending) return <div className="skeleton stat-skeleton" />;
+  if (result.error)
+    return (
+      <Card title="Contribution calendar">
+        <p className="notice">
+          {result.error.message} The rest of your analysis is still available.
+        </p>
+      </Card>
+    );
+  if (!result.data?.available)
+    return (
+      <Card title="Contribution calendar">
+        <div className="contribution-unavailable">
+          <CalendarDays size={25} />
+          <div>
+            <strong>{result.data?.reason}</strong>
+            <p>
+              Configure a server-side GITHUB_TOKEN to enable the official GitHub
+              contribution calendar.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  return (
+    <Heatmap
+      title="Contribution calendar"
+      subtitle="Official GitHub contributions · past year"
+      days={
+        result.data.weeks?.flatMap((w) =>
+          w.contributionDays.map((d) => ({
+            date: d.date,
+            count: d.contributionCount,
+          })),
+        ) || []
+      }
+    />
+  );
+}
+export function Analyzer() {
+  const params = useSearchParams();
+  const selected = useWorkspace((s) => s.selectedUsername);
+  const username = params.get("username") || selected;
+  return username ? (
+    <Dashboard username={username} analyzer />
+  ) : (
+    <>
+      <PageHeading
+        eyebrow="A LITTLE MORE PERSPECTIVE"
+        title="Developer analyzer"
+        description="Follow the patterns behind a developer’s public work."
+      />
+      <div className="analyzer-empty">
+        <Empty
+          title="Every developer has a rhythm."
+          description="Explore public activity, languages, and repositories. No scores for skill, just a clearer view of the work."
+        >
+          <DeveloperSearch large analyzer />
+        </Empty>
+      </div>
+    </>
+  );
+}
+export function Dashboard({
+  username,
+  analyzer = false,
+}: {
+  username: string;
+  analyzer?: boolean;
+}) {
+  const result = useDeveloper(username);
+  const { select, addRecent, toggleDeveloper, developers, preferences } =
+    useWorkspace();
+  const [ranking, setRanking] = useState<RepoSort>("stars");
+  useEffect(() => {
+    if (result.data) {
+      select(result.data.profile.login);
+      addRecent({
+        kind: "developer",
+        label: `@${result.data.profile.login}`,
+        url: `/developer/${result.data.profile.login}`,
+      });
+    }
+  }, [result.data, select, addRecent]);
+  if (result.isPending) return <Loading />;
+  if (result.error)
+    return (
+      <>
+        <PageHeading
+          title="Find your signal"
+          description="Explore any public GitHub developer."
+        />
+        <DeveloperSearch />
+        <ErrorState error={result.error} retry={() => result.refetch()} />
+      </>
+    );
+  if (!result.data) return null;
+  const { profile, repos, events, warnings, repoTruncated } = result.data;
+  const saved = developers.some((d) => d.login === profile.login);
+  const languages = languageDistribution(repos);
+  const top = sortRepositories(repos, ranking).slice(0, 4);
+  const stats = [
+    {
+      label: "Repositories",
+      value: profile.public_repos,
+      icon: BookOpen,
+      sub: `${repos.length} analyzed`,
+    },
+    {
+      label: "Visible stars",
+      value: totalStars(repos),
+      icon: Star,
+      sub: "Across retrieved repositories",
+    },
+    {
+      label: "Followers",
+      value: profile.followers,
+      icon: Users,
+      sub: `Following ${number(profile.following)} developers`,
+    },
+    {
+      label: "Repository forks",
+      value: totalForks(repos),
+      icon: GitFork,
+      sub: `${languages.length} primary languages`,
+    },
+  ];
+  return (
+    <Entrance>
+      <PageHeading
+        eyebrow={
+          analyzer ? "UNDERSTAND THE PATTERNS" : "YOUR DEVELOPER COMMAND CENTER"
+        }
+        title={analyzer ? "Behind the contributions." : "Developer overview"}
+        description={
+          analyzer
+            ? "An honest look at the public signals behind the work."
+            : "The projects, people, and momentum behind the profile."
+        }
+        actions={
+          <>
+            <Link
+              className="button secondary"
+              href={
+                analyzer
+                  ? `/developer/${profile.login}`
+                  : `/analyzer?username=${profile.login}`
+              }
+            >
+              {analyzer ? "Overview" : "Deep dive"} <ArrowRight size={15} />
+            </Link>
+            <button
+              className="icon-button bordered"
+              title="Refresh developer"
+              aria-label="Refresh developer"
+              disabled={result.isFetching}
+              onClick={() => result.refetch()}
+            >
+              <RefreshCw
+                size={17}
+                className={result.isFetching ? "spin" : ""}
+              />
+            </button>
+          </>
+        }
+      />
+      {analyzer && <DeveloperSearch analyzer />}
+      <section className="profile-card">
+        <img
+          src={profile.avatar_url}
+          alt={`${profile.login} avatar`}
+          className="profile-avatar"
+        />
+        <div className="profile-info">
+          <div className="profile-name">
+            <h2>{profile.name || profile.login}</h2>
+            <span className="profile-tag">GITHUB DEVELOPER</span>
+          </div>
+          <span className="profile-username mono">@{profile.login}</span>
+          <p>{profile.bio || "Building something, one commit at a time."}</p>
+          <div className="profile-meta">
+            {profile.location && (
+              <span>
+                <MapPin size={13} />
+                {profile.location}
+              </span>
+            )}
+            {profile.company && (
+              <span>
+                <Building2 size={13} />
+                {profile.company}
+              </span>
+            )}
+            <span>
+              <CalendarDays size={13} /> Joined {dateLabel(profile.created_at)}
+            </span>
+            {safeUrl(profile.blog) && (
+              <External href={safeUrl(profile.blog)!}>Website</External>
+            )}
+          </div>
+        </div>
+        <div className="profile-actions">
+          <button
+            className={`button ${saved ? "secondary" : "primary"}`}
+            onClick={() => {
+              toggleDeveloper(profile);
+              toast.success(saved ? "Developer removed" : "Developer saved");
+            }}
+          >
+            <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
+            {saved ? "Saved developer" : "Save developer"}
+          </button>
+          <External href={profile.html_url} className="button secondary">
+            <GitGraph size={15} />
+            View GitHub
+          </External>
+          <div className="profile-copy">
+            <CopyButton value={profile.login} label="Copy username" />
+            <CopyButton value={profile.html_url} label="Copy URL" />
+          </div>
+        </div>
+      </section>
+      {warnings.map((w, i) => (
+        <p className="notice" key={i}>
+          {w}
+        </p>
+      ))}
+      {repoTruncated && (
+        <p className="notice">
+          Repository analytics cover {repos.length} retrieved repositories, not
+          the full profile.
+        </p>
+      )}
+      <div className="stats-grid">
+        {stats.map((s) => (
+          <Card key={s.label} className="stat-card">
+            <div>
+              <span>{s.label}</span>
+              <s.icon size={17} />
+            </div>
+            <strong className="mono">
+              <AnimatedNumber value={s.value} />
+            </strong>
+            <p>{s.sub}</p>
+          </Card>
+        ))}
+      </div>
+      <div className="dashboard-primary">
+        <ActivityChart events={events} />
+        <Pulse events={events} repos={repos} />
+      </div>
+      {analyzer ? (
+        <>
+          <Heatmap days={groupEventsByDay(events, 90)} />
+          <ContributionCalendar username={profile.login} />
+          <PatternCharts events={events} />
+        </>
+      ) : null}
+      <div className="analytics-pair">
+        <LanguageChart repos={repos} />
+        <Card
+          title="Signals worth noticing"
+          subtitle="A few observations, grounded in the available data."
+        >
+          <div className="insights">
+            {languages.length > 0 && (
+              <div>
+                <Code2 size={19} />
+                <p>
+                  <strong>{languages[0].name} leads the way.</strong>
+                  <span>
+                    It is the primary language in {languages[0].value} of the
+                    analyzed repositories.
+                  </span>
+                </p>
+              </div>
+            )}
+            {events.length > 0 && (
+              <div>
+                <Activity size={19} />
+                <p>
+                  <strong>
+                    The latest signal was{" "}
+                    {new Date(events[0].created_at).toLocaleDateString("en", {
+                      weekday: "long",
+                      timeZone: "UTC",
+                    })}
+                    .
+                  </strong>
+                  <span>
+                    {events.length} visible public events were retrieved.{" "}
+                    {events.filter((e) => e.type === "PushEvent").length} are
+                    push events.
+                  </span>
+                </p>
+              </div>
+            )}
+            {repos.length > 0 && (
+              <div>
+                <GitFork size={19} />
+                <p>
+                  <strong>
+                    {
+                      repos.filter(
+                        (r) => result.dataUpdatedAt - Date.parse(r.pushed_at) < 7 * 864e5,
+                      ).length
+                    }{" "}
+                    repositories pushed to this week.
+                  </strong>
+                  <span>
+                    Recent pushes reflect updates, not necessarily the profile
+                    owner’s own commits.
+                  </span>
+                </p>
+              </div>
+            )}
+            {!repos.length && !events.length && (
+              <Empty
+                title="Room for new signals"
+                description="There is not enough public data to generate observations."
+              />
+            )}
+          </div>
+        </Card>
+      </div>
+      <div className="section-heading">
+        <div>
+          <h2>Repositories in the spotlight</h2>
+          <p>The work behind the numbers.</p>
+        </div>
+        <div className="heading-actions">
+          <select
+            aria-label="Repository ranking"
+            value={ranking}
+            onChange={(e) => setRanking(e.target.value as RepoSort)}
+          >
+            <option value="stars">Most starred</option>
+            <option value="forks">Most forked</option>
+            <option value="updated">Recently updated</option>
+            <option value="created">Newest</option>
+          </select>
+          <Link
+            className="text-link"
+            href={`/explore?q=${encodeURIComponent(`user:${profile.login}`)}`}
+          >
+            View all <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+      {top.length ? (
+        <RepositoryGrid repos={top} />
+      ) : (
+        <Empty
+          title="No public repositories yet"
+          description="Repositories will appear here when they become public."
+        />
+      )}
+      <Card
+        title="The latest from GitHub"
+        subtitle="A timeline of visible public activity."
+        actions={<span className="subtle-badge">{events.length} events</span>}
+      >
+        <div className="activity-timeline">
+          {events.length ? (
+            events.slice(0, 8).map((event) => (
+              <div key={event.id}>
+                <span className="timeline-icon">
+                  <Activity size={15} />
+                </span>
+                <div>
+                  <p>
+                    {eventLabel(event)}{" "}
+                    <Link href={`/repository/${event.repo.name}`}>
+                      {event.repo.name}
+                    </Link>
+                  </p>
+                  <span className="mono">
+                    {event.type.replace("Event", "")}
+                  </span>
+                </div>
+                <time title={dateLabel(event.created_at)}>
+                  {relative(event.created_at)}
+                </time>
+              </div>
+            ))
+          ) : (
+            <p className="muted">
+              No recent public activity. Private contributions are not included.
+            </p>
+          )}
+        </div>
+      </Card>
+      {!analyzer && <Widgets />}
+      <div className="data-caption">
+        <span className="status-dot" /> Last retrieved{" "}
+        {relative(result.dataUpdatedAt)} · {repos.length} repositories ·{" "}
+        {events.length} events
+        {preferences.reducedMotion ? " · Reduced motion" : ""}
+      </div>
+    </Entrance>
+  );
 }

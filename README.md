@@ -46,16 +46,16 @@ Use a GitHub token authorized to read public profile/contribution information. N
 
 ## Routes
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Welcome workspace or configured default profile |
-| `/developer/{username}` | Developer overview |
-| `/analyzer?username={username}` | Detailed public activity analysis |
-| `/explore?q={query}` | Repository discovery |
-| `/repository/{owner}/{repo}` | Repository metadata and README |
-| `/saved` | Local saved collection |
-| `/notes` | Local notes |
-| `/settings` | Appearance, widgets, API status, and data controls |
+| Route                           | Purpose                                            |
+| ------------------------------- | -------------------------------------------------- |
+| `/`                             | Welcome workspace or configured default profile    |
+| `/developer/{username}`         | Developer overview                                 |
+| `/analyzer?username={username}` | Detailed public activity analysis                  |
+| `/explore?q={query}`            | Repository discovery                               |
+| `/repository/{owner}/{repo}`    | Repository metadata and README                     |
+| `/saved`                        | Local saved collection                             |
+| `/notes`                        | Local notes                                        |
+| `/settings`                     | Appearance, widgets, API status, and data controls |
 
 ## Stack and structure
 

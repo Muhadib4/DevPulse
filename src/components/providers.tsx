@@ -1,7 +1,63 @@
-'use client';
-import {useEffect,useState,type ReactNode} from 'react';
-import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import {Toaster} from 'sonner';
-import {useWorkspace} from '@/stores/workspace';
-import {ApiError} from '@/lib/github/queries';
-export function Providers({children}:{children:ReactNode}){const [client]=useState(()=>new QueryClient({defaultOptions:{queries:{staleTime:5*60*1000,gcTime:30*60*1000,refetchOnWindowFocus:false,retry:(count,error)=>count<1&&!(error instanceof ApiError&&[400,401,403,404,422,429].includes(error.status))}}}));const preferences=useWorkspace(s=>s.preferences);const [ready,setReady]=useState(false);useEffect(()=>{void Promise.resolve(useWorkspace.persist.rehydrate()).then(()=>setReady(true));},[]);useEffect(()=>{const media=matchMedia('(prefers-color-scheme: dark)');const apply=()=>{document.documentElement.dataset.theme=preferences.theme==='system'?(media.matches?'dark':'light'):preferences.theme;document.documentElement.dataset.motion=preferences.reducedMotion?'reduced':'full';};apply();media.addEventListener('change',apply);return()=>media.removeEventListener('change',apply);},[preferences]);return <QueryClientProvider client={client}>{ready?children:<div className="boot"><span className="brand-mark">⌁</span><span>Starting your workspace…</span></div>}<Toaster position="bottom-right" theme={preferences.theme} richColors/></QueryClientProvider>;}
+"use client";
+import { useEffect, useState, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+import { useWorkspace } from "@/stores/workspace";
+import { ApiError } from "@/lib/github/queries";
+export function Providers({ children }: { children: ReactNode }) {
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000,
+            gcTime: 30 * 60 * 1000,
+            refetchOnWindowFocus: false,
+            retry: (count, error) =>
+              count < 1 &&
+              !(
+                error instanceof ApiError &&
+                [400, 401, 403, 404, 422, 429].includes(error.status)
+              ),
+          },
+        },
+      }),
+  );
+  const preferences = useWorkspace((s) => s.preferences);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    void Promise.resolve(useWorkspace.persist.rehydrate()).then(() =>
+      setReady(true),
+    );
+  }, []);
+  useEffect(() => {
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.dataset.theme =
+        preferences.theme === "system"
+          ? media.matches
+            ? "dark"
+            : "light"
+          : preferences.theme;
+      document.documentElement.dataset.motion = preferences.reducedMotion
+        ? "reduced"
+        : "full";
+    };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [preferences]);
+  return (
+    <QueryClientProvider client={client}>
+      {ready ? (
+        children
+      ) : (
+        <div className="boot">
+          <span className="brand-mark">⌁</span>
+          <span>Starting your workspace…</span>
+        </div>
+      )}
+      <Toaster position="bottom-right" theme={preferences.theme} richColors />
+    </QueryClientProvider>
+  );
+}

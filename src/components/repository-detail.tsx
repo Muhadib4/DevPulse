@@ -1,13 +1,252 @@
-'use client';
-import {useEffect} from 'react';
-import Link from 'next/link';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import {Bookmark,BookOpen,GitFork,GitBranch,Star,Users,CircleDot} from 'lucide-react';
-import {toast} from 'sonner';
-import {useRepository} from '@/lib/github/queries';
-import {dateLabel,number,safeUrl} from '@/lib/utils';
-import {palette} from '@/lib/github/analytics';
-import {useWorkspace} from '@/stores/workspace';
-import {Card,CopyButton,Empty,Entrance,ErrorState,External,Loading,PageHeading} from './ui';
-export function RepositoryDetail({owner,name}:{owner:string;name:string}){const result=useRepository(owner,name);const {repositories,toggleRepository,addRecent}=useWorkspace();useEffect(()=>{if(result.data)addRecent({kind:'repository',label:result.data.repo.full_name,url:`/repository/${result.data.repo.full_name}`});},[result.data,addRecent]);if(result.isPending)return <Loading/>;if(result.error)return <ErrorState error={result.error} retry={()=>result.refetch()}/>;if(!result.data)return null;const {repo,languages,readme,warnings}=result.data;const saved=repositories.some(r=>r.id===repo.id);const languageTotal=Object.values(languages).reduce((a,b)=>a+b,0);return <Entrance><PageHeading eyebrow="REPOSITORY INTELLIGENCE" title={repo.name} description={repo.full_name} actions={<><button className="button secondary" onClick={()=>{toggleRepository(repo);toast.success(saved?'Repository removed':'Repository saved');}}><Bookmark size={16} fill={saved?'currentColor':'none'}/>{saved?'Saved':'Save repository'}</button><External href={repo.html_url} className="button primary">View on GitHub</External></>}/><Card className="repo-summary"><div className="repo-detail-description"><BookOpen size={25}/><p>{repo.description||'No description provided.'}</p></div><div className="repo-topics">{repo.topics.map(t=><Link key={t} href={`/explore?q=${encodeURIComponent(`topic:${t}`)}`}>{t}</Link>)}</div><div className="detail-actions"><Link className="owner-link" href={`/developer/${repo.owner.login}`}><img src={repo.owner.avatar_url} alt=""/>{repo.owner.login}</Link><CopyButton value={repo.html_url} label="Copy repository URL"/><CopyButton value={repo.clone_url} label="Copy clone URL"/>{safeUrl(repo.homepage)&&<External href={safeUrl(repo.homepage)!} className="button secondary small">Visit website</External>}</div></Card>{warnings.map(w=><p className="notice" key={w}>{w}</p>)}<div className="stats-grid">{[{label:'Stars',value:repo.stargazers_count,icon:Star},{label:'Forks',value:repo.forks_count,icon:GitFork},{label:'Open issues + PRs',value:repo.open_issues_count,icon:CircleDot},{label:'Subscribers',value:repo.subscribers_count,icon:Users}].map(s=><Card className="stat-card" key={s.label}><div><span>{s.label}</span><s.icon size={17}/></div><strong className="mono">{s.value===undefined?'—':number(s.value)}</strong></Card>)}</div><div className="repository-detail-grid"><Card title="README" subtitle="Repository documentation · rendered without raw HTML" actions={<External href={`${repo.html_url}#readme`}>GitHub</External>} className="readme-card">{readme?<div className="markdown"><Markdown remarkPlugins={[remarkGfm]} skipHtml urlTransform={url=>{try{const parsed=new URL(url,`https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/`);return ['https:','http:'].includes(parsed.protocol)?parsed.href:'';}catch{return '';}}} components={{a:({href,children})=><a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,img:({src,alt})=>typeof src==='string'?<a href={src} target="_blank" rel="noopener noreferrer" className="readme-image-link">[Image: {alt||'Repository image'}]</a>:null}}>{readme}</Markdown></div>:<Empty title="No README to preview" description="Visit the repository on GitHub to explore its files."/>}</Card><div className="detail-sidebar"><Card title="Repository details"><dl className="metadata-list">{[['Default branch',repo.default_branch],['License',repo.license?.spdx_id||'Not specified'],['Visibility',repo.visibility||'public'],['Created',dateLabel(repo.created_at)],['Updated',dateLabel(repo.updated_at)],['Last push',dateLabel(repo.pushed_at)],['Size',`${number(repo.size)} KB`],['Status',repo.archived?'Archived':'Active'],['Type',repo.fork?'Fork':'Original']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{label==='Default branch'&&<GitBranch size={13}/>} {value}</dd></div>)}</dl></Card><Card title="Language breakdown" subtitle="Measured by GitHub language bytes."><div className="language-byte-bar">{Object.entries(languages).map(([lang,bytes],i)=><span key={lang} title={`${lang}: ${bytes} bytes`} style={{width:`${bytes/languageTotal*100}%`,background:palette[i%palette.length]}}/>)}</div><div className="language-legend">{Object.entries(languages).map(([lang,bytes],i)=><div key={lang}><i style={{background:palette[i%palette.length]}}/><span>{lang}</span><strong className="mono">{(bytes/languageTotal*100).toFixed(1)}%</strong></div>)}</div>{!languageTotal&&<p className="muted">No language bytes available.</p>}</Card></div></div></Entrance>;}
+"use client";
+import { useEffect } from "react";
+import Link from "next/link";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Bookmark,
+  BookOpen,
+  GitFork,
+  GitBranch,
+  Star,
+  Users,
+  CircleDot,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useRepository } from "@/lib/github/queries";
+import { dateLabel, number, safeUrl } from "@/lib/utils";
+import { palette } from "@/lib/github/analytics";
+import { useWorkspace } from "@/stores/workspace";
+import {
+  Card,
+  CopyButton,
+  Empty,
+  Entrance,
+  ErrorState,
+  External,
+  Loading,
+  PageHeading,
+} from "./ui";
+export function RepositoryDetail({
+  owner,
+  name,
+}: {
+  owner: string;
+  name: string;
+}) {
+  const result = useRepository(owner, name);
+  const { repositories, toggleRepository, addRecent } = useWorkspace();
+  useEffect(() => {
+    if (result.data)
+      addRecent({
+        kind: "repository",
+        label: result.data.repo.full_name,
+        url: `/repository/${result.data.repo.full_name}`,
+      });
+  }, [result.data, addRecent]);
+  if (result.isPending) return <Loading />;
+  if (result.error)
+    return <ErrorState error={result.error} retry={() => result.refetch()} />;
+  if (!result.data) return null;
+  const { repo, languages, readme, warnings } = result.data;
+  const saved = repositories.some((r) => r.id === repo.id);
+  const languageTotal = Object.values(languages).reduce((a, b) => a + b, 0);
+  return (
+    <Entrance>
+      <PageHeading
+        eyebrow="REPOSITORY INTELLIGENCE"
+        title={repo.name}
+        description={repo.full_name}
+        actions={
+          <>
+            <button
+              className="button secondary"
+              onClick={() => {
+                toggleRepository(repo);
+                toast.success(
+                  saved ? "Repository removed" : "Repository saved",
+                );
+              }}
+            >
+              <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
+              {saved ? "Saved" : "Save repository"}
+            </button>
+            <External href={repo.html_url} className="button primary">
+              View on GitHub
+            </External>
+          </>
+        }
+      />
+      <Card className="repo-summary">
+        <div className="repo-detail-description">
+          <BookOpen size={25} />
+          <p>{repo.description || "No description provided."}</p>
+        </div>
+        <div className="repo-topics">
+          {repo.topics.map((t) => (
+            <Link
+              key={t}
+              href={`/explore?q=${encodeURIComponent(`topic:${t}`)}`}
+            >
+              {t}
+            </Link>
+          ))}
+        </div>
+        <div className="detail-actions">
+          <Link className="owner-link" href={`/developer/${repo.owner.login}`}>
+            <img src={repo.owner.avatar_url} alt="" />
+            {repo.owner.login}
+          </Link>
+          <CopyButton value={repo.html_url} label="Copy repository URL" />
+          <CopyButton value={repo.clone_url} label="Copy clone URL" />
+          {safeUrl(repo.homepage) && (
+            <External
+              href={safeUrl(repo.homepage)!}
+              className="button secondary small"
+            >
+              Visit website
+            </External>
+          )}
+        </div>
+      </Card>
+      {warnings.map((w) => (
+        <p className="notice" key={w}>
+          {w}
+        </p>
+      ))}
+      <div className="stats-grid">
+        {[
+          { label: "Stars", value: repo.stargazers_count, icon: Star },
+          { label: "Forks", value: repo.forks_count, icon: GitFork },
+          {
+            label: "Open issues + PRs",
+            value: repo.open_issues_count,
+            icon: CircleDot,
+          },
+          { label: "Subscribers", value: repo.subscribers_count, icon: Users },
+        ].map((s) => (
+          <Card className="stat-card" key={s.label}>
+            <div>
+              <span>{s.label}</span>
+              <s.icon size={17} />
+            </div>
+            <strong className="mono">
+              {s.value === undefined ? "—" : number(s.value)}
+            </strong>
+          </Card>
+        ))}
+      </div>
+      <div className="repository-detail-grid">
+        <Card
+          title="README"
+          subtitle="Repository documentation · rendered without raw HTML"
+          actions={<External href={`${repo.html_url}#readme`}>GitHub</External>}
+          className="readme-card"
+        >
+          {readme ? (
+            <div className="markdown">
+              <Markdown
+                remarkPlugins={[remarkGfm]}
+                skipHtml
+                urlTransform={(url) => {
+                  try {
+                    const parsed = new URL(
+                      url,
+                      `https://raw.githubusercontent.com/${repo.full_name}/${repo.default_branch}/`,
+                    );
+                    return ["https:", "http:"].includes(parsed.protocol)
+                      ? parsed.href
+                      : "";
+                  } catch {
+                    return "";
+                  }
+                }}
+                components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {children}
+                    </a>
+                  ),
+                  img: ({ src, alt }) =>
+                    typeof src === "string" ? (
+                      <a
+                        href={src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="readme-image-link"
+                      >
+                        [Image: {alt || "Repository image"}]
+                      </a>
+                    ) : null,
+                }}
+              >
+                {readme}
+              </Markdown>
+            </div>
+          ) : (
+            <Empty
+              title="No README to preview"
+              description="Visit the repository on GitHub to explore its files."
+            />
+          )}
+        </Card>
+        <div className="detail-sidebar">
+          <Card title="Repository details">
+            <dl className="metadata-list">
+              {[
+                ["Default branch", repo.default_branch],
+                ["License", repo.license?.spdx_id || "Not specified"],
+                ["Visibility", repo.visibility || "public"],
+                ["Created", dateLabel(repo.created_at)],
+                ["Updated", dateLabel(repo.updated_at)],
+                ["Last push", dateLabel(repo.pushed_at)],
+                ["Size", `${number(repo.size)} KB`],
+                ["Status", repo.archived ? "Archived" : "Active"],
+                ["Type", repo.fork ? "Fork" : "Original"],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>
+                    {label === "Default branch" && <GitBranch size={13} />}{" "}
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+          <Card
+            title="Language breakdown"
+            subtitle="Measured by GitHub language bytes."
+          >
+            <div className="language-byte-bar">
+              {Object.entries(languages).map(([lang, bytes], i) => (
+                <span
+                  key={lang}
+                  title={`${lang}: ${bytes} bytes`}
+                  style={{
+                    width: `${(bytes / languageTotal) * 100}%`,
+                    background: palette[i % palette.length],
+                  }}
+                />
+              ))}
+            </div>
+            <div className="language-legend">
+              {Object.entries(languages).map(([lang, bytes], i) => (
+                <div key={lang}>
+                  <i style={{ background: palette[i % palette.length] }} />
+                  <span>{lang}</span>
+                  <strong className="mono">
+                    {((bytes / languageTotal) * 100).toFixed(1)}%
+                  </strong>
+                </div>
+              ))}
+            </div>
+            {!languageTotal && (
+              <p className="muted">No language bytes available.</p>
+            )}
+          </Card>
+        </div>
+      </div>
+    </Entrance>
+  );
+}

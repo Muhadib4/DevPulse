@@ -6,16 +6,16 @@ DevPulse is a quiet developer command center: telemetry clarity meets an editori
 
 ## Color and surfaces
 
-| Role | Dark | Light |
-| --- | --- | --- |
-| Canvas | `#0b0e14` | `#f2f4f6` |
-| Sidebar | `#0e1118` | `#f8f9fa` |
-| Card | `#11161e` | `#fcfcfd` |
-| Raised surface | `#191f29` | `#e8edf1` |
-| Primary text | `#edf1f5` | `#18222c` |
-| Secondary text | `#8b95a7` | `#576575` |
-| Quiet text | `#647084` | `#687888` |
-| Accent | `#58dece` | `#087f77` |
+| Role            | Dark      | Light     |
+| --------------- | --------- | --------- |
+| Canvas          | `#0b0e14` | `#f2f4f6` |
+| Sidebar         | `#0e1118` | `#f8f9fa` |
+| Card            | `#11161e` | `#fcfcfd` |
+| Raised surface  | `#191f29` | `#e8edf1` |
+| Primary text    | `#edf1f5` | `#18222c` |
+| Secondary text  | `#8b95a7` | `#576575` |
+| Quiet text      | `#647084` | `#687888` |
+| Accent          | `#58dece` | `#087f77` |
 | Link/chart blue | `#86a5ff` | `#476fc0` |
 
 Colors are CSS variables in `src/app/globals.css`, switched through `data-theme`. Dark is the initial preference; users may choose light or system. Soft off-white surfaces avoid glare. Borders use a subdued translucent slate. Errors use rose; caution states use amber. Color always has supporting text, icons, labels, or accessible names.

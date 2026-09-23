@@ -1,10 +1,291 @@
-'use client';
-import {useState} from 'react';
-import {Bell,Database,GitGraph,Monitor,Moon,Sun} from 'lucide-react';
-import {toast} from 'sonner';
-import {defaults,useWorkspace} from '@/stores/workspace';
-import {useApiStatus} from '@/lib/github/queries';
-import {validUsername} from '@/lib/utils';
-import {Card,Entrance,PageHeading} from './ui';
-function Toggle({checked,onChange,label}:{checked:boolean;onChange:(v:boolean)=>void;label:string}){return <button role="switch" aria-checked={checked} aria-label={label} className={`toggle ${checked?'checked':''}`} onClick={()=>onChange(!checked)}><span/></button>;}
-export function Settings(){const {preferences,setPreferences,reset}=useWorkspace();const [username,setUsername]=useState(preferences.defaultUsername);const status=useApiStatus();return <Entrance><PageHeading eyebrow="MAKE IT FEEL LIKE YOU" title="Workspace settings" description="A few small details. A workspace that fits."/><div className="settings-layout"><Card title="Appearance" subtitle="Choose the light you work best in."><div className="theme-options">{([{value:'dark',label:'Midnight',icon:Moon},{value:'light',label:'Daylight',icon:Sun},{value:'system',label:'System',icon:Monitor}] as const).map(t=><button key={t.value} className={`theme-option ${preferences.theme===t.value?'selected':''}`} onClick={()=>setPreferences({theme:t.value})}><div className={`theme-preview ${t.value}`}><i/><span/><span/><span/></div><span><t.icon size={15}/>{t.label}<i className="radio-dot"/></span></button>)}</div></Card><Card title="Dashboard" subtitle="Your essentials, exactly where you need them."><form className="setting-row username-setting" onSubmit={e=>{e.preventDefault();const name=username.trim().replace(/^@/,'');if(name&&!validUsername(name)){toast.error('Enter a valid GitHub username.');return;}setPreferences({defaultUsername:name});toast.success('Default developer updated');}}><div><strong>Default developer</strong><p>Open this profile on your next visit. Leave blank for the welcome screen.</p></div><div className="inline-form"><input aria-label="Default GitHub username" placeholder="GitHub username" value={username} onChange={e=>setUsername(e.target.value)}/><button className="button secondary small">Save</button></div></form><div className="setting-row"><div><strong>24-hour clock</strong><p>Keep time in a familiar format.</p></div><Toggle label="Use 24-hour clock" checked={preferences.hour24} onChange={hour24=>setPreferences({hour24})}/></div><div className="setting-row"><div><strong>Repository layout</strong><p>Your default view in the explorer.</p></div><select aria-label="Default repository view" value={preferences.repoView} onChange={e=>setPreferences({repoView:e.target.value as 'grid'|'list'})}><option value="grid">Grid</option><option value="list">List</option></select></div>{Object.entries(preferences.widgets).map(([key,value])=><div className="setting-row" key={key}><div><strong>{{clock:'Local clock',focus:'Focus timer',notes:'Quick notes',recent:'Recent searches'}[key]}</strong><p>Show this widget on your dashboard.</p></div><Toggle label={`Show ${key} widget`} checked={value} onChange={v=>setPreferences({widgets:{...preferences.widgets,[key]:v}})}/></div>)}</Card><Card title="Motion & focus" subtitle="Keep the experience comfortable."><div className="setting-row"><div><strong>Reduce animations</strong><p>System reduced-motion preferences are always respected.</p></div><Toggle label="Reduce animations" checked={preferences.reducedMotion} onChange={reducedMotion=>setPreferences({reducedMotion})}/></div><div className="setting-row"><div><strong>Focus timer notifications</strong><p>Optional browser notifications when a session finishes.</p></div><button className="button secondary small" onClick={async()=>{if(!('Notification' in window)){toast.error('Notifications are not supported in this browser.');return;}const permission=await Notification.requestPermission();toast(permission==='granted'?'Focus notifications enabled':'Notifications remain disabled');}}><Bell size={14}/>Enable</button></div></Card><Card title="GitHub connection" actions={<GitGraph size={18}/>}><div className="setting-row"><div><strong>{status.data?.enhanced?'Enhanced API access':'Public API access'}</strong><p>{status.error?status.error.message:'Optional GITHUB_TOKEN is configured on the server, never in your browser.'}</p></div><span className="live-badge"><span className="status-dot"/>{status.data?'Connected':'Checking'}</span></div>{status.data&&<div className="api-stats"><div><strong className="mono">{status.data.remaining} / {status.data.limit}</strong><span>Core requests remaining</span></div><div><strong className="mono">{new Date(status.data.reset*1000).toLocaleTimeString()}</strong><span>Rate limit resets</span></div></div>}<p className="fine-print">Search has a separate, stricter GitHub rate limit. Calendar access requires a valid server token.</p></Card><Card title="Local data" subtitle="Your workspace belongs to you." actions={<Database size={17}/>}><div className="setting-row"><div><strong>Reset preferences</strong><p>Restore defaults while keeping your notes and saved items.</p></div><button className="button secondary small" onClick={()=>{setPreferences(defaults);setUsername('');toast.success('Preferences reset');}}>Reset settings</button></div><div className="setting-row"><div><strong>Clear all local data</strong><p>Permanently remove notes, saved items, history, and preferences from this browser.</p></div><button className="button danger-button small" onClick={()=>{if(confirm('Delete all notes, saved items, history, and preferences? This cannot be undone.')){reset();setUsername('');toast.success('Local workspace cleared');}}}>Clear data</button></div></Card></div></Entrance>;}
+"use client";
+import { useState } from "react";
+import { Bell, Database, GitGraph, Monitor, Moon, Sun } from "lucide-react";
+import { toast } from "sonner";
+import { defaults, useWorkspace } from "@/stores/workspace";
+import { useApiStatus } from "@/lib/github/queries";
+import { validUsername } from "@/lib/utils";
+import { Card, Entrance, PageHeading } from "./ui";
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className={`toggle ${checked ? "checked" : ""}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span />
+    </button>
+  );
+}
+export function Settings() {
+  const { preferences, setPreferences, reset } = useWorkspace();
+  const [username, setUsername] = useState(preferences.defaultUsername);
+  const status = useApiStatus();
+  return (
+    <Entrance>
+      <PageHeading
+        eyebrow="MAKE IT FEEL LIKE YOU"
+        title="Workspace settings"
+        description="A few small details. A workspace that fits."
+      />
+      <div className="settings-layout">
+        <Card title="Appearance" subtitle="Choose the light you work best in.">
+          <div className="theme-options">
+            {(
+              [
+                { value: "dark", label: "Midnight", icon: Moon },
+                { value: "light", label: "Daylight", icon: Sun },
+                { value: "system", label: "System", icon: Monitor },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.value}
+                className={`theme-option ${preferences.theme === t.value ? "selected" : ""}`}
+                onClick={() => setPreferences({ theme: t.value })}
+              >
+                <div className={`theme-preview ${t.value}`}>
+                  <i />
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <span>
+                  <t.icon size={15} />
+                  {t.label}
+                  <i className="radio-dot" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+        <Card
+          title="Dashboard"
+          subtitle="Your essentials, exactly where you need them."
+        >
+          <form
+            className="setting-row username-setting"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = username.trim().replace(/^@/, "");
+              if (name && !validUsername(name)) {
+                toast.error("Enter a valid GitHub username.");
+                return;
+              }
+              setPreferences({ defaultUsername: name });
+              toast.success("Default developer updated");
+            }}
+          >
+            <div>
+              <strong>Default developer</strong>
+              <p>
+                Open this profile on your next visit. Leave blank for the
+                welcome screen.
+              </p>
+            </div>
+            <div className="inline-form">
+              <input
+                aria-label="Default GitHub username"
+                placeholder="GitHub username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <button className="button secondary small">Save</button>
+            </div>
+          </form>
+          <div className="setting-row">
+            <div>
+              <strong>24-hour clock</strong>
+              <p>Keep time in a familiar format.</p>
+            </div>
+            <Toggle
+              label="Use 24-hour clock"
+              checked={preferences.hour24}
+              onChange={(hour24) => setPreferences({ hour24 })}
+            />
+          </div>
+          <div className="setting-row">
+            <div>
+              <strong>Repository layout</strong>
+              <p>Your default view in the explorer.</p>
+            </div>
+            <select
+              aria-label="Default repository view"
+              value={preferences.repoView}
+              onChange={(e) =>
+                setPreferences({ repoView: e.target.value as "grid" | "list" })
+              }
+            >
+              <option value="grid">Grid</option>
+              <option value="list">List</option>
+            </select>
+          </div>
+          {Object.entries(preferences.widgets).map(([key, value]) => (
+            <div className="setting-row" key={key}>
+              <div>
+                <strong>
+                  {
+                    {
+                      clock: "Local clock",
+                      focus: "Focus timer",
+                      notes: "Quick notes",
+                      recent: "Recent searches",
+                    }[key]
+                  }
+                </strong>
+                <p>Show this widget on your dashboard.</p>
+              </div>
+              <Toggle
+                label={`Show ${key} widget`}
+                checked={value}
+                onChange={(v) =>
+                  setPreferences({
+                    widgets: { ...preferences.widgets, [key]: v },
+                  })
+                }
+              />
+            </div>
+          ))}
+        </Card>
+        <Card
+          title="Motion & focus"
+          subtitle="Keep the experience comfortable."
+        >
+          <div className="setting-row">
+            <div>
+              <strong>Reduce animations</strong>
+              <p>System reduced-motion preferences are always respected.</p>
+            </div>
+            <Toggle
+              label="Reduce animations"
+              checked={preferences.reducedMotion}
+              onChange={(reducedMotion) => setPreferences({ reducedMotion })}
+            />
+          </div>
+          <div className="setting-row">
+            <div>
+              <strong>Focus timer notifications</strong>
+              <p>Optional browser notifications when a session finishes.</p>
+            </div>
+            <button
+              className="button secondary small"
+              onClick={async () => {
+                if (!("Notification" in window)) {
+                  toast.error(
+                    "Notifications are not supported in this browser.",
+                  );
+                  return;
+                }
+                const permission = await Notification.requestPermission();
+                toast(
+                  permission === "granted"
+                    ? "Focus notifications enabled"
+                    : "Notifications remain disabled",
+                );
+              }}
+            >
+              <Bell size={14} />
+              Enable
+            </button>
+          </div>
+        </Card>
+        <Card title="GitHub connection" actions={<GitGraph size={18} />}>
+          <div className="setting-row">
+            <div>
+              <strong>
+                {status.data?.enhanced
+                  ? "Enhanced API access"
+                  : "Public API access"}
+              </strong>
+              <p>
+                {status.error
+                  ? status.error.message
+                  : "Optional GITHUB_TOKEN is configured on the server, never in your browser."}
+              </p>
+            </div>
+            <span className="live-badge">
+              <span className="status-dot" />
+              {status.data ? "Connected" : "Checking"}
+            </span>
+          </div>
+          {status.data && (
+            <div className="api-stats">
+              <div>
+                <strong className="mono">
+                  {status.data.remaining} / {status.data.limit}
+                </strong>
+                <span>Core requests remaining</span>
+              </div>
+              <div>
+                <strong className="mono">
+                  {new Date(status.data.reset * 1000).toLocaleTimeString()}
+                </strong>
+                <span>Rate limit resets</span>
+              </div>
+            </div>
+          )}
+          <p className="fine-print">
+            Search has a separate, stricter GitHub rate limit. Calendar access
+            requires a valid server token.
+          </p>
+        </Card>
+        <Card
+          title="Local data"
+          subtitle="Your workspace belongs to you."
+          actions={<Database size={17} />}
+        >
+          <div className="setting-row">
+            <div>
+              <strong>Reset preferences</strong>
+              <p>Restore defaults while keeping your notes and saved items.</p>
+            </div>
+            <button
+              className="button secondary small"
+              onClick={() => {
+                setPreferences(defaults);
+                setUsername("");
+                toast.success("Preferences reset");
+              }}
+            >
+              Reset settings
+            </button>
+          </div>
+          <div className="setting-row">
+            <div>
+              <strong>Clear all local data</strong>
+              <p>
+                Permanently remove notes, saved items, history, and preferences
+                from this browser.
+              </p>
+            </div>
+            <button
+              className="button danger-button small"
+              onClick={() => {
+                if (
+                  confirm(
+                    "Delete all notes, saved items, history, and preferences? This cannot be undone.",
+                  )
+                ) {
+                  reset();
+                  setUsername("");
+                  toast.success("Local workspace cleared");
+                }
+              }}
+            >
+              Clear data
+            </button>
+          </div>
+        </Card>
+      </div>
+    </Entrance>
+  );
+}
